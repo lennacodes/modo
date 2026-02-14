@@ -9,8 +9,8 @@ A CLI tool for managing reusable Claude Code configuration presets. Build a libr
 Requires Swift 5.10+ (ships with Xcode 15.3+).
 
 ```sh
-git clone https://github.com/lennacodes/Modo.git
-cd Modo/modo
+git clone https://github.com/lennacodes/modo.git
+cd modo/modo
 swift build -c release
 cp .build/release/modo /usr/local/bin/modo
 ```
