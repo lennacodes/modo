@@ -1,8 +1,8 @@
 # Modo
 
-Composable configuration presets for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+Stop copying `.claude/` folders between projects.
 
-Modo lets you maintain a library of small, focused config presets and compose them into any project's `.claude/` directory with a single command. Instead of copying monolithic templates, you combine modular pieces — and Modo handles the merge intelligently.
+Modo is a CLI tool that lets you build reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config presets and compose them per-project. Apply multiple presets with one command — `claude.md` files get compiled with section headers, `settings.json` files get deep-merged so permission lists combine instead of overwrite.
 
 ```
 modo apply swift-conventions testing-rules my-permissions
