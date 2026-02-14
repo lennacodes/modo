@@ -81,6 +81,12 @@ public enum PresetStore {
     public static func createFromProject(name: String, projectPath: URL) throws {
         try ModoConfig.ensureSetup()
 
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: projectPath.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            throw ModoError.projectPathNotFound(projectPath.path)
+        }
+
         let dir = ModoConfig.presetDirectory(named: name)
         if FileManager.default.fileExists(atPath: dir.path) {
             throw ModoError.presetAlreadyExists(ModoConfig.sanitize(name))

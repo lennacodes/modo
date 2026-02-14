@@ -6,6 +6,7 @@ public enum ModoError: LocalizedError {
     case noPresetsSpecified
     case exportFailed(String)
     case importFailed(String)
+    case projectPathNotFound(String)
 
     public var errorDescription: String? {
         switch self {
@@ -19,6 +20,8 @@ public enum ModoError: LocalizedError {
             return "Export failed: \(reason)"
         case .importFailed(let reason):
             return "Import failed: \(reason)"
+        case .projectPathNotFound(let path):
+            return "Project path '\(path)' not found. Check the path and try again."
         }
     }
 }

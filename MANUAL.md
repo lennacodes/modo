@@ -6,11 +6,13 @@ A CLI tool for managing reusable Claude Code configuration presets. Build a libr
 
 ## Installation
 
-Installed at `~/bin/modo`. Rebuild with:
-```
-cd ~/Desktop/mappa/modo
+Requires Swift 5.10+ (ships with Xcode 15.3+).
+
+```sh
+git clone https://github.com/lennacodes/Modo.git
+cd Modo/modo
 swift build -c release
-cp .build/release/modo ~/bin/modo
+cp .build/release/modo /usr/local/bin/modo
 ```
 
 ---
@@ -87,7 +89,7 @@ modo apply swift-app --dry-run                  # Preview without writing files
 
 | File | Strategy |
 |------|----------|
-| `claude.md` | Concatenated with `## Preset Name` section headers, content indented, separated by `---` |
+| `claude.md` | Concatenated with `## Preset Name` section headers, separated by `---` |
 | `settings.json` | Deep-merged: string arrays are unioned (no duplicates), dict arrays concatenated, nested dicts merged recursively, scalars use last-preset-wins |
 | `.gitignore` | `.claude/` appended if not already present |
 | `.modo.json` | Written with preset names, timestamp, and modo version |
@@ -179,8 +181,8 @@ modo --generate-completion-script fish > ~/.config/fish/completions/modo.fish
 
 | What | Path |
 |------|------|
-| Binary | `~/bin/modo` |
-| Source | `~/Desktop/mappa/modo/` |
+| Binary | `/usr/local/bin/modo` |
+| Source | Clone from GitHub |
 | Presets | `~/.config/modo/presets/` |
 | Preset metadata | `~/.config/modo/presets/<name>/preset.json` |
 | Preset instructions | `~/.config/modo/presets/<name>/claude.md` |
