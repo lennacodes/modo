@@ -132,6 +132,10 @@ Presets live at `~/.config/modo/presets/`. Each preset is a directory:
 
 I'm a beginner developer and built Modo with the help of [Claude Code](https://docs.anthropic.com/en/docs/claude-code). If you find bugs or want to contribute, issues and PRs are welcome!
 
+## Support
+
+If you find Modo useful, [buy me a coffee](https://buymeacoffee.com/lennacodes).
+
 ## License
 
 MIT
