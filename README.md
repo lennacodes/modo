@@ -2,7 +2,7 @@
 
 Stop copying `.claude/` folders between projects.
 
-Modo is a CLI tool that lets you build reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config presets and compose them per-project. Apply multiple presets with one command — `claude.md` files get compiled with section headers, `settings.json` files get deep-merged so permission lists combine instead of overwrite.
+Modo is a CLI tool that lets you build reusable [Claude Code](https://docs.anthropic.com/en/docs/claude-code) config presets and compose them per-project. Apply multiple presets with one command — `claude.md` files get compiled with section headers, `settings.json` files get deep-merged so permission lists combine instead of overwrite, and `commands/`, `skills/`, and `rules/` directories are copied into `.claude/` so your custom slash commands, skills, and rules carry over too.
 
 ```
 modo apply swift-conventions testing-rules my-permissions
@@ -92,6 +92,8 @@ Result:   {"permissions": {"allow": ["swift build", "git push"]}}
 
 **`.gitignore`** — `.claude/` is appended if not already present.
 
+**Directories** — `commands/`, `skills/`, and `rules/` directories are copied into `.claude/` as-is. If two presets have a file with the same path, the last preset wins and a warning is shown.
+
 **Backups** — Re-applying to a project that already has `.claude/` files automatically backs up the existing files to `.bak` before overwriting.
 
 ## Sharing presets
@@ -125,7 +127,10 @@ Presets live at `~/.config/modo/presets/`. Each preset is a directory:
 ~/.config/modo/presets/swift-app/
 ├── preset.json      # metadata (name, description, tags)
 ├── claude.md        # instructions for Claude Code
-└── settings.json    # permissions and hooks (optional)
+├── settings.json    # permissions and hooks (optional)
+├── commands/        # custom slash commands (optional)
+├── skills/          # skill definitions (optional)
+└── rules/           # conditional rules (optional)
 ```
 
 ## Built with Claude Code
