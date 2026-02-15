@@ -4,7 +4,7 @@ import Foundation
 public enum ModoConfig {
 
     /// Current version string.
-    public static let version = "1.0.0"
+    public static let version = "1.1.0"
 
     /// Where all presets live: ~/.config/modo/presets/
     public static var presetsDirectory: URL {

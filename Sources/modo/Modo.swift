@@ -15,7 +15,7 @@ struct Modo: ParsableCommand {
               modo apply my-preset        Apply it to the current project
               modo apply base ext rules   Merge multiple presets together
             """,
-        version: "1.0.0",
+        version: "1.1.0",
         subcommands: [
             New.self,
             ListPresets.self,
