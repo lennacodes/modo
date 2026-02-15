@@ -251,6 +251,79 @@ final class PresetStoreTests: XCTestCase {
         XCTAssertEqual(rules, ["swift.md"])
     }
 
+    func testExportAndImportPreservesSubdirectories() throws {
+        let name = "test-exportdirs-\(UUID().uuidString.prefix(8))"
+        defer { try? PresetStore.delete(name: name) }
+
+        try PresetStore.create(name: name, description: "With directories")
+
+        let presetDir = ModoConfig.presetDirectory(named: name)
+
+        // Write claude.md content
+        try "Export dirs test.".write(
+            to: presetDir.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+
+        // Add commands/review.md
+        let cmdsDir = presetDir.appendingPathComponent(ModoConfig.commandsDirName)
+        try FileManager.default.createDirectory(at: cmdsDir, withIntermediateDirectories: true)
+        try "Review carefully.".write(
+            to: cmdsDir.appendingPathComponent("review.md"),
+            atomically: true, encoding: .utf8
+        )
+
+        // Add skills/explain/SKILL.md
+        let skillDir = presetDir
+            .appendingPathComponent(ModoConfig.skillsDirName)
+            .appendingPathComponent("explain")
+        try FileManager.default.createDirectory(at: skillDir, withIntermediateDirectories: true)
+        try "Explain simply.".write(
+            to: skillDir.appendingPathComponent("SKILL.md"),
+            atomically: true, encoding: .utf8
+        )
+
+        // Add rules/swift.md
+        let rulesDir = presetDir.appendingPathComponent(ModoConfig.rulesDirName)
+        try FileManager.default.createDirectory(at: rulesDir, withIntermediateDirectories: true)
+        try "Follow conventions.".write(
+            to: rulesDir.appendingPathComponent("swift.md"),
+            atomically: true, encoding: .utf8
+        )
+
+        // Export
+        let exportDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-export-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: exportDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: exportDir) }
+
+        let zipURL = try PresetStore.exportPreset(name: name, to: exportDir)
+
+        // Delete the original
+        try PresetStore.delete(name: name)
+        XCTAssertFalse(PresetStore.exists(name: name))
+
+        // Import it back
+        let importedName = try PresetStore.importPreset(from: zipURL)
+        XCTAssertTrue(PresetStore.exists(name: importedName))
+
+        // Verify subdirectories survived the round-trip
+        let commands = PresetStore.listCommands(name: importedName)
+        let skills = PresetStore.listSkills(name: importedName)
+        let rules = PresetStore.listRules(name: importedName)
+
+        XCTAssertEqual(commands, ["review.md"])
+        XCTAssertEqual(skills, ["explain"])
+        XCTAssertEqual(rules, ["swift.md"])
+
+        // Verify file content survived
+        let reviewPath = ModoConfig.presetDirectory(named: importedName)
+            .appendingPathComponent(ModoConfig.commandsDirName)
+            .appendingPathComponent("review.md")
+        let reviewContent = try String(contentsOf: reviewPath, encoding: .utf8)
+        XCTAssertEqual(reviewContent, "Review carefully.")
+    }
+
     func testImportDuplicateThrows() throws {
         let name = "test-impdup-\(UUID().uuidString.prefix(8))"
         defer { try? PresetStore.delete(name: name) }
