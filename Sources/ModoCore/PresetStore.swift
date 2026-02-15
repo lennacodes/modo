@@ -111,6 +111,17 @@ public enum PresetStore {
             )
         }
 
+        // Copy commands/, skills/, rules/ directories if they exist
+        let subDirs = [ModoConfig.commandsDirName, ModoConfig.skillsDirName, ModoConfig.rulesDirName]
+        for subDir in subDirs {
+            let source = projectPath.appendingPathComponent(".claude/\(subDir)")
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: source.path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                try FileManager.default.copyItem(at: source, to: dir.appendingPathComponent(subDir))
+            }
+        }
+
         try claudeMD.write(
             to: dir.appendingPathComponent(ModoConfig.claudeMDFilename),
             atomically: true,
@@ -148,6 +159,54 @@ public enum PresetStore {
         let path = ModoConfig.presetDirectory(named: name)
             .appendingPathComponent(ModoConfig.settingsFilename)
         return try? String(contentsOf: path, encoding: .utf8)
+    }
+
+    /// Returns .md filenames in the preset's commands/ directory, or empty array if none exist.
+    public static func listCommands(name: String) -> [String] {
+        listMDFiles(presetName: name, subdirectory: ModoConfig.commandsDirName)
+    }
+
+    /// Returns skill folder names in the preset's skills/ directory, or empty array if none exist.
+    public static func listSkills(name: String) -> [String] {
+        let dir = ModoConfig.presetDirectory(named: name)
+            .appendingPathComponent(ModoConfig.skillsDirName)
+
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return entries
+            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+            .map { $0.lastPathComponent }
+            .sorted()
+    }
+
+    /// Returns .md filenames in the preset's rules/ directory, or empty array if none exist.
+    public static func listRules(name: String) -> [String] {
+        listMDFiles(presetName: name, subdirectory: ModoConfig.rulesDirName)
+    }
+
+    /// Lists .md files in a preset subdirectory.
+    private static func listMDFiles(presetName: String, subdirectory: String) -> [String] {
+        let dir = ModoConfig.presetDirectory(named: presetName)
+            .appendingPathComponent(subdirectory)
+
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return entries
+            .filter { $0.pathExtension == "md" }
+            .map { $0.lastPathComponent }
+            .sorted()
     }
 
     // MARK: - Delete

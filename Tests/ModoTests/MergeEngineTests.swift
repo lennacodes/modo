@@ -337,6 +337,240 @@ final class MergeEngineTests: XCTestCase {
         XCTAssertEqual(record.modoVersion, ModoConfig.version)
     }
 
+    // MARK: - Directory copying (commands, skills, rules)
+
+    func testApplyCopiesCommandsDirectory() throws {
+        let presetName = "test-cmds-\(UUID().uuidString.prefix(8))"
+        try PresetStore.create(name: presetName)
+
+        let presetDir = ModoConfig.presetDirectory(named: presetName)
+        try "Preset content.".write(
+            to: presetDir.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+
+        // Add a command to the preset
+        let cmdsDir = presetDir.appendingPathComponent(ModoConfig.commandsDirName)
+        try FileManager.default.createDirectory(at: cmdsDir, withIntermediateDirectories: true)
+        try "Review this code carefully.".write(
+            to: cmdsDir.appendingPathComponent("review.md"),
+            atomically: true, encoding: .utf8
+        )
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        defer {
+            try? PresetStore.delete(name: presetName)
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let result = try MergeEngine.apply(presetNames: [presetName], to: tempDir)
+
+        // Verify file was copied
+        let targetFile = tempDir.appendingPathComponent(".claude/commands/review.md")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: targetFile.path))
+
+        let content = try String(contentsOf: targetFile, encoding: .utf8)
+        XCTAssertEqual(content, "Review this code carefully.")
+
+        // Verify tracking
+        XCTAssertTrue(result.copiedFiles.contains(".claude/commands/review.md"))
+        XCTAssertTrue(result.created.contains(".claude/commands/"))
+    }
+
+    func testApplyCopiesSkillsDirectory() throws {
+        let presetName = "test-skills-\(UUID().uuidString.prefix(8))"
+        try PresetStore.create(name: presetName)
+
+        let presetDir = ModoConfig.presetDirectory(named: presetName)
+        try "Preset content.".write(
+            to: presetDir.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+
+        // Add a skill (nested structure: skills/explain/SKILL.md)
+        let skillDir = presetDir
+            .appendingPathComponent(ModoConfig.skillsDirName)
+            .appendingPathComponent("explain")
+        try FileManager.default.createDirectory(at: skillDir, withIntermediateDirectories: true)
+        try "Explain code simply.".write(
+            to: skillDir.appendingPathComponent("SKILL.md"),
+            atomically: true, encoding: .utf8
+        )
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        defer {
+            try? PresetStore.delete(name: presetName)
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let result = try MergeEngine.apply(presetNames: [presetName], to: tempDir)
+
+        // Verify nested file was copied
+        let targetFile = tempDir.appendingPathComponent(".claude/skills/explain/SKILL.md")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: targetFile.path))
+
+        let content = try String(contentsOf: targetFile, encoding: .utf8)
+        XCTAssertEqual(content, "Explain code simply.")
+
+        XCTAssertTrue(result.copiedFiles.contains(".claude/skills/explain/SKILL.md"))
+    }
+
+    func testApplyCopiesRulesDirectory() throws {
+        let presetName = "test-rules-\(UUID().uuidString.prefix(8))"
+        try PresetStore.create(name: presetName)
+
+        let presetDir = ModoConfig.presetDirectory(named: presetName)
+        try "Preset content.".write(
+            to: presetDir.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+
+        let rulesDir = presetDir.appendingPathComponent(ModoConfig.rulesDirName)
+        try FileManager.default.createDirectory(at: rulesDir, withIntermediateDirectories: true)
+        try "Use Swift 5.10.".write(
+            to: rulesDir.appendingPathComponent("swift.md"),
+            atomically: true, encoding: .utf8
+        )
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        defer {
+            try? PresetStore.delete(name: presetName)
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let result = try MergeEngine.apply(presetNames: [presetName], to: tempDir)
+
+        let targetFile = tempDir.appendingPathComponent(".claude/rules/swift.md")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: targetFile.path))
+        XCTAssertTrue(result.copiedFiles.contains(".claude/rules/swift.md"))
+    }
+
+    func testApplyConflictLastPresetWins() throws {
+        let preset1 = "test-conflict1-\(UUID().uuidString.prefix(8))"
+        let preset2 = "test-conflict2-\(UUID().uuidString.prefix(8))"
+        try PresetStore.create(name: preset1)
+        try PresetStore.create(name: preset2)
+
+        let dir1 = ModoConfig.presetDirectory(named: preset1)
+        let dir2 = ModoConfig.presetDirectory(named: preset2)
+
+        try "Content from preset 1.".write(
+            to: dir1.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+        try "Content from preset 2.".write(
+            to: dir2.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+
+        // Both presets have commands/review.md with different content
+        let cmds1 = dir1.appendingPathComponent(ModoConfig.commandsDirName)
+        let cmds2 = dir2.appendingPathComponent(ModoConfig.commandsDirName)
+        try FileManager.default.createDirectory(at: cmds1, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: cmds2, withIntermediateDirectories: true)
+        try "Review from preset 1.".write(to: cmds1.appendingPathComponent("review.md"), atomically: true, encoding: .utf8)
+        try "Review from preset 2.".write(to: cmds2.appendingPathComponent("review.md"), atomically: true, encoding: .utf8)
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        defer {
+            try? PresetStore.delete(name: preset1)
+            try? PresetStore.delete(name: preset2)
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let result = try MergeEngine.apply(presetNames: [preset1, preset2], to: tempDir)
+
+        // Last preset wins
+        let targetFile = tempDir.appendingPathComponent(".claude/commands/review.md")
+        let content = try String(contentsOf: targetFile, encoding: .utf8)
+        XCTAssertEqual(content, "Review from preset 2.")
+
+        // Overwrite warning was recorded
+        XCTAssertFalse(result.overwrittenFiles.isEmpty)
+    }
+
+    func testApplyDryRunDoesNotCopyDirectories() throws {
+        let presetName = "test-drydir-\(UUID().uuidString.prefix(8))"
+        try PresetStore.create(name: presetName)
+
+        let presetDir = ModoConfig.presetDirectory(named: presetName)
+        try "Content.".write(
+            to: presetDir.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+
+        let cmdsDir = presetDir.appendingPathComponent(ModoConfig.commandsDirName)
+        try FileManager.default.createDirectory(at: cmdsDir, withIntermediateDirectories: true)
+        try "Review.".write(to: cmdsDir.appendingPathComponent("review.md"), atomically: true, encoding: .utf8)
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        defer {
+            try? PresetStore.delete(name: presetName)
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let result = try MergeEngine.apply(presetNames: [presetName], to: tempDir, dryRun: true)
+
+        // Should report what would be copied
+        XCTAssertTrue(result.copiedFiles.contains(".claude/commands/review.md"))
+
+        // But nothing should exist on disk
+        let targetFile = tempDir.appendingPathComponent(".claude/commands/review.md")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: targetFile.path))
+    }
+
+    func testReapplyBacksUpExistingDirectoryFiles() throws {
+        let presetName = "test-dirbak-\(UUID().uuidString.prefix(8))"
+        try PresetStore.create(name: presetName)
+
+        let presetDir = ModoConfig.presetDirectory(named: presetName)
+        try "Content.".write(
+            to: presetDir.appendingPathComponent(ModoConfig.claudeMDFilename),
+            atomically: true, encoding: .utf8
+        )
+
+        let cmdsDir = presetDir.appendingPathComponent(ModoConfig.commandsDirName)
+        try FileManager.default.createDirectory(at: cmdsDir, withIntermediateDirectories: true)
+        try "Original review.".write(to: cmdsDir.appendingPathComponent("review.md"), atomically: true, encoding: .utf8)
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        defer {
+            try? PresetStore.delete(name: presetName)
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        // First apply
+        _ = try MergeEngine.apply(presetNames: [presetName], to: tempDir)
+
+        // Second apply — should back up the command file
+        let result2 = try MergeEngine.apply(presetNames: [presetName], to: tempDir)
+        XCTAssertTrue(result2.backedUp.contains(".claude/commands/review.md.bak"))
+
+        // Verify .bak exists
+        let bakFile = tempDir.appendingPathComponent(".claude/commands/review.md.bak")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: bakFile.path))
+    }
+
+    // MARK: - Backup
+
     func testReapplyBacksUpExistingFiles() throws {
         let presetName = "test-backup-\(UUID().uuidString.prefix(8))"
         try PresetStore.create(name: presetName)

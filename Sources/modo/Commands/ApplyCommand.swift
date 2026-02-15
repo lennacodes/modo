@@ -91,6 +91,20 @@ struct Apply: ParsableCommand {
             }
         }
 
+        // Show overwrite warnings (when two presets had the same file)
+        for file in result.overwrittenFiles {
+            Style.warning("Overwritten: \(file)")
+        }
+
+        // Show copied directory files (deduplicated — only show final copy)
+        let copyVerb = dryRun ? "Would copy" : "Copied"
+        var seenCopied = Set<String>()
+        for file in result.copiedFiles.reversed() {
+            if seenCopied.insert(file).inserted {
+                Style.success("\(copyVerb) \(file)")
+            }
+        }
+
         print("")
         if dryRun {
             print("  \(Style.dim("No files were changed. Remove --dry-run to apply for real."))")

@@ -25,7 +25,10 @@ Presets are stored at `~/.config/modo/presets/`. Each preset is a folder:
 ~/.config/modo/presets/swift-app/
 ├── preset.json        # Metadata (name, description, tags)
 ├── claude.md          # Instructions for Claude Code
-└── settings.json      # Permissions and hooks (optional)
+├── settings.json      # Permissions and hooks (optional)
+├── commands/          # Custom slash commands (optional)
+├── skills/            # Skill definitions (optional)
+└── rules/             # Conditional rules (optional)
 ```
 
 Names are sanitized to lowercase-hyphenated: "Swift App" becomes `swift-app/`.
@@ -37,6 +40,9 @@ your-project/
 ├── .claude/
 │   ├── claude.md        # Compiled from presets
 │   ├── settings.json    # Deep-merged from presets
+│   ├── commands/        # Copied from presets (if any)
+│   ├── skills/          # Copied from presets (if any)
+│   ├── rules/           # Copied from presets (if any)
 │   └── .modo.json       # Apply record (presets used, timestamp, version)
 ├── .gitignore           # Updated to include .claude/
 └── ...
@@ -93,6 +99,7 @@ modo apply swift-app --dry-run                  # Preview without writing files
 | `settings.json` | Deep-merged: string arrays are unioned (no duplicates), dict arrays concatenated, nested dicts merged recursively, scalars use last-preset-wins |
 | `.gitignore` | `.claude/` appended if not already present |
 | `.modo.json` | Written with preset names, timestamp, and modo version |
+| `commands/`, `skills/`, `rules/` | Copied into `.claude/` as-is; last preset wins on conflict |
 
 Empty `claude.md` files are skipped. Presets without `settings.json` are skipped for the merge step.
 
@@ -188,5 +195,8 @@ modo --generate-completion-script fish > ~/.config/fish/completions/modo.fish
 | Preset instructions | `~/.config/modo/presets/<name>/claude.md` |
 | Preset permissions | `~/.config/modo/presets/<name>/settings.json` |
 | Applied config | `<project>/.claude/claude.md`, `<project>/.claude/settings.json` |
+| Preset commands | `~/.config/modo/presets/<name>/commands/` |
+| Preset skills | `~/.config/modo/presets/<name>/skills/` |
+| Preset rules | `~/.config/modo/presets/<name>/rules/` |
 | Apply record | `<project>/.claude/.modo.json` |
 | Exported preset | `<name>.modopreset.zip` |

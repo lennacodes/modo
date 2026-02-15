@@ -4,7 +4,7 @@ import Foundation
 public enum ModoConfig {
 
     /// Current version string.
-    public static let version = "1.0.0"
+    public static let version = "1.1.0"
 
     /// Where all presets live: ~/.config/modo/presets/
     public static var presetsDirectory: URL {
@@ -29,6 +29,9 @@ public enum ModoConfig {
     public static let settingsFilename = "settings.json"
     public static let metadataFilename = "preset.json"
     public static let applyRecordFilename = ".modo.json"
+    public static let commandsDirName = "commands"
+    public static let skillsDirName = "skills"
+    public static let rulesDirName = "rules"
 
     /// Ensure the presets directory exists (called on first use).
     public static func ensureSetup() throws {
