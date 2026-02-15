@@ -29,6 +29,9 @@ public enum ModoConfig {
     public static let settingsFilename = "settings.json"
     public static let metadataFilename = "preset.json"
     public static let applyRecordFilename = ".modo.json"
+    public static let commandsDirName = "commands"
+    public static let skillsDirName = "skills"
+    public static let rulesDirName = "rules"
 
     /// Ensure the presets directory exists (called on first use).
     public static func ensureSetup() throws {

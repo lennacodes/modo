@@ -20,6 +20,8 @@ public struct ApplyResult {
     public var backedUp: [String] = []
     public var sectionCount: Int = 0
     public var settingsPresetCount: Int = 0
+    public var copiedFiles: [String] = []
+    public var overwrittenFiles: [String] = []
 
     public init() {}
 }
@@ -60,10 +62,16 @@ public enum MergeEngine {
             result: &result, dryRun: dryRun
         )
 
-        // 4. Update .gitignore
+        // 4. Copy commands/, skills/, rules/ directories
+        try copyPresetDirectories(
+            presetNames: presetNames, projectURL: projectURL,
+            result: &result, dryRun: dryRun
+        )
+
+        // 5. Update .gitignore
         try updateGitignore(projectURL: projectURL, result: &result, dryRun: dryRun)
 
-        // 5. Write apply record
+        // 6. Write apply record
         if !dryRun {
             try writeApplyRecord(presetNames: presetNames, projectURL: projectURL)
         }
@@ -208,6 +216,110 @@ public enum MergeEngine {
         } else {
             result.created.append(".claude/settings.json")
         }
+    }
+
+    // MARK: - Directory Copying (commands, skills, rules)
+
+    /// Copies commands/, skills/, and rules/ directories from each preset into the project.
+    /// Last preset wins if two presets have the same file. A warning is recorded for conflicts.
+    private static func copyPresetDirectories(
+        presetNames: [String], projectURL: URL,
+        result: inout ApplyResult, dryRun: Bool
+    ) throws {
+        let fm = FileManager.default
+        let claudeDir = projectURL.appendingPathComponent(".claude")
+
+        // Track which files have been placed so we can detect conflicts.
+        // Key: "commands/review.md", Value: preset name that placed it
+        var placedFiles: [String: String] = [:]
+
+        let dirNames = [ModoConfig.commandsDirName, ModoConfig.skillsDirName, ModoConfig.rulesDirName]
+
+        for presetName in presetNames {
+            let presetDir = ModoConfig.presetDirectory(named: presetName)
+
+            for dirName in dirNames {
+                let sourceDir = presetDir.appendingPathComponent(dirName)
+
+                // Skip if this preset doesn't have this directory
+                var isDir: ObjCBool = false
+                guard fm.fileExists(atPath: sourceDir.path, isDirectory: &isDir),
+                      isDir.boolValue else { continue }
+
+                // Ensure the target subdirectory exists inside .claude/
+                let targetDir = claudeDir.appendingPathComponent(dirName)
+                if !fm.fileExists(atPath: targetDir.path) {
+                    if !dryRun {
+                        try fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
+                    }
+                    result.created.append(".claude/\(dirName)/")
+                }
+
+                // Collect all files to copy
+                let filesToCopy = try collectFiles(in: sourceDir, relativeTo: sourceDir)
+
+                for relativePath in filesToCopy {
+                    let sourcePath = sourceDir.appendingPathComponent(relativePath)
+                    let targetPath = targetDir.appendingPathComponent(relativePath)
+                    let displayPath = ".claude/\(dirName)/\(relativePath)"
+
+                    // Check for conflicts
+                    let fileKey = "\(dirName)/\(relativePath)"
+                    let existedBefore = fm.fileExists(atPath: targetPath.path)
+
+                    if let previousPreset = placedFiles[fileKey] {
+                        // Another preset already placed this file in this apply run
+                        result.overwrittenFiles.append("\(displayPath) (from \(previousPreset))")
+                    } else if existedBefore {
+                        // File existed from a previous apply — back it up
+                        try backupIfExists(targetPath, relativePath: displayPath, result: &result, dryRun: dryRun)
+                    }
+
+                    if !dryRun {
+                        // Ensure parent directory exists (for skills/explain/SKILL.md)
+                        let parentDir = targetPath.deletingLastPathComponent()
+                        if !fm.fileExists(atPath: parentDir.path) {
+                            try fm.createDirectory(at: parentDir, withIntermediateDirectories: true)
+                        }
+
+                        // Remove existing file before copying (copyItem fails if target exists)
+                        if fm.fileExists(atPath: targetPath.path) {
+                            try fm.removeItem(at: targetPath)
+                        }
+                        try fm.copyItem(at: sourcePath, to: targetPath)
+                    }
+
+                    placedFiles[fileKey] = presetName
+                    result.copiedFiles.append(displayPath)
+                }
+            }
+        }
+    }
+
+    /// Recursively collects relative file paths within a directory.
+    private static func collectFiles(in directory: URL, relativeTo base: URL) throws -> [String] {
+        var files: [String] = []
+
+        guard let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        while let fileURL = enumerator.nextObject() as? URL {
+            let isFile = (try? fileURL.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+            guard isFile else { continue }
+
+            let fullPath = fileURL.path
+            let basePath = base.path + "/"
+            if fullPath.hasPrefix(basePath) {
+                files.append(String(fullPath.dropFirst(basePath.count)))
+            }
+        }
+
+        return files.sorted()
     }
 
     // MARK: - Gitignore

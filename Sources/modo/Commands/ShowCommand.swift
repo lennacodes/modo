@@ -52,6 +52,37 @@ struct Show: ParsableCommand {
             }
         }
 
+        // Show commands
+        let commands = PresetStore.listCommands(name: dirName)
+        if !commands.isEmpty {
+            print("")
+            print("  \(Style.bold("commands/")) (\(commands.count))")
+            for cmd in commands {
+                let cmdName = cmd.replacingOccurrences(of: ".md", with: "")
+                print("    /\(cmdName)")
+            }
+        }
+
+        // Show skills
+        let skills = PresetStore.listSkills(name: dirName)
+        if !skills.isEmpty {
+            print("")
+            print("  \(Style.bold("skills/")) (\(skills.count))")
+            for skill in skills {
+                print("    \(skill)/SKILL.md")
+            }
+        }
+
+        // Show rules
+        let rules = PresetStore.listRules(name: dirName)
+        if !rules.isEmpty {
+            print("")
+            print("  \(Style.bold("rules/")) (\(rules.count))")
+            for rule in rules {
+                print("    \(rule)")
+            }
+        }
+
         print("")
     }
 }

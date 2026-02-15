@@ -158,6 +158,99 @@ final class PresetStoreTests: XCTestCase {
         XCTAssertEqual(content, "Export test content.")
     }
 
+    // MARK: - List commands/skills/rules
+
+    func testListCommandsReturnsFilenames() throws {
+        let name = "test-cmds-\(UUID().uuidString.prefix(8))"
+        defer { try? PresetStore.delete(name: name) }
+
+        try PresetStore.create(name: name)
+
+        let cmdsDir = ModoConfig.presetDirectory(named: name)
+            .appendingPathComponent(ModoConfig.commandsDirName)
+        try FileManager.default.createDirectory(at: cmdsDir, withIntermediateDirectories: true)
+        try "Review code.".write(to: cmdsDir.appendingPathComponent("review.md"), atomically: true, encoding: .utf8)
+        try "Deploy app.".write(to: cmdsDir.appendingPathComponent("deploy.md"), atomically: true, encoding: .utf8)
+
+        let commands = PresetStore.listCommands(name: name)
+        XCTAssertEqual(commands, ["deploy.md", "review.md"])
+    }
+
+    func testListSkillsReturnsFolderNames() throws {
+        let name = "test-skills-\(UUID().uuidString.prefix(8))"
+        defer { try? PresetStore.delete(name: name) }
+
+        try PresetStore.create(name: name)
+
+        let skillDir = ModoConfig.presetDirectory(named: name)
+            .appendingPathComponent(ModoConfig.skillsDirName)
+            .appendingPathComponent("explain")
+        try FileManager.default.createDirectory(at: skillDir, withIntermediateDirectories: true)
+        try "Explain code.".write(to: skillDir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+
+        let skills = PresetStore.listSkills(name: name)
+        XCTAssertEqual(skills, ["explain"])
+    }
+
+    func testListRulesReturnsFilenames() throws {
+        let name = "test-rules-\(UUID().uuidString.prefix(8))"
+        defer { try? PresetStore.delete(name: name) }
+
+        try PresetStore.create(name: name)
+
+        let rulesDir = ModoConfig.presetDirectory(named: name)
+            .appendingPathComponent(ModoConfig.rulesDirName)
+        try FileManager.default.createDirectory(at: rulesDir, withIntermediateDirectories: true)
+        try "Use Swift 5.10.".write(to: rulesDir.appendingPathComponent("swift.md"), atomically: true, encoding: .utf8)
+
+        let rules = PresetStore.listRules(name: name)
+        XCTAssertEqual(rules, ["swift.md"])
+    }
+
+    func testListCommandsReturnsEmptyWhenNoDirectory() throws {
+        let name = "test-nocmds-\(UUID().uuidString.prefix(8))"
+        defer { try? PresetStore.delete(name: name) }
+
+        try PresetStore.create(name: name)
+
+        let commands = PresetStore.listCommands(name: name)
+        XCTAssertEqual(commands, [])
+    }
+
+    func testCreateFromProjectCopiesSubdirectories() throws {
+        let name = "test-fromproj-\(UUID().uuidString.prefix(8))"
+        defer { try? PresetStore.delete(name: name) }
+
+        // Create a fake project with .claude/ structure
+        let fakeProject = FileManager.default.temporaryDirectory
+            .appendingPathComponent("modo-test-proj-\(UUID().uuidString)")
+        let claudeDir = fakeProject.appendingPathComponent(".claude")
+        let cmdsDir = claudeDir.appendingPathComponent("commands")
+        let skillsDir = claudeDir.appendingPathComponent("skills/explain")
+        let rulesDir = claudeDir.appendingPathComponent("rules")
+
+        try FileManager.default.createDirectory(at: cmdsDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: skillsDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: rulesDir, withIntermediateDirectories: true)
+
+        try "Instructions.".write(to: claudeDir.appendingPathComponent("claude.md"), atomically: true, encoding: .utf8)
+        try "Review code.".write(to: cmdsDir.appendingPathComponent("review.md"), atomically: true, encoding: .utf8)
+        try "Explain skill.".write(to: skillsDir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+        try "Swift rules.".write(to: rulesDir.appendingPathComponent("swift.md"), atomically: true, encoding: .utf8)
+
+        defer { try? FileManager.default.removeItem(at: fakeProject) }
+
+        try PresetStore.createFromProject(name: name, projectPath: fakeProject)
+
+        let commands = PresetStore.listCommands(name: name)
+        let skills = PresetStore.listSkills(name: name)
+        let rules = PresetStore.listRules(name: name)
+
+        XCTAssertEqual(commands, ["review.md"])
+        XCTAssertEqual(skills, ["explain"])
+        XCTAssertEqual(rules, ["swift.md"])
+    }
+
     func testImportDuplicateThrows() throws {
         let name = "test-impdup-\(UUID().uuidString.prefix(8))"
         defer { try? PresetStore.delete(name: name) }
